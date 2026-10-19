@@ -1,61 +1,61 @@
-const { estNonVide, estEmailValide } = require('../utils/validators');
+const User = require('../models/userModel');
 
-let users = [
-  { id: 1, nom: 'wassim', email: 'wassim@gmail.com' },
-  { id: 2, nom: 'Aya', email: 'aya@gmail.com' },
-  { id: 3, nom: 'ali', email: 'ali@gmail.com' }
-];
+// 1. Créer un nouvel utilisateur (POST /api/users)
+const createUser = async (req, res) => {
+  try {
+    const { name, email, age, role } = req.body;
 
-const getAllUsers = (req, res) => {
-  const { nom } = req.query;  
-
-  let resultat = users;
-  if (nom) {                   
-    resultat = users.filter(a => a.nom === nom);
-  }
-  res.json({users: resultat });
-};
-
-const getUserById = (req, res) => {
-  const id = Number(req.params.id); // "2" -> 2
-  const user = users.find(u => u.id === id);
-  if (!user) {
-    return res.status(404).json({ error: `User ${id} introuvable` });
-  }
-  res.json(user);
-}
-
-const createUser = (req, res) => {
-  const { nom, email } = req.body; 
-  
-  if (!estNonVide(nom) || !estEmailValide(email)) {
-    console.log("aaa");
-    return res.status(400).json({ error: "Le nom est obligatoire et l'email est invalide" });
-  }
-  res.status(201).json({ message: "User created" });
-};
-
-const deleteUser = (req, res) => {
-    const id = Number(req.params.id);
-    const userExiste = users.some(u => u.id === id);
-
-
-    if (!userExiste) {
-        return res.status(404).json({
-            error: `Impossible de supprimer : user ${id} introuvable`
-        });
+    if (!name || !email) {
+      return res.status(400).json({ message: "Le nom et l'email sont requis" });
     }
 
-    // On filtre pour ne garder que les users ayant un ID différent
+    // Vérification de doublon d'email
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(409).json({ message: 'Cet email est deja utilise' });
+    }
 
+    const user = await User.create({ name, email, age, role });
+    res.status(201).json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
-    res.status(200).json({
-        message: `User ${id} supprimé avec succès`
-    });
+// 2. Obtenir tous les utilisateurs (GET /api/users)
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
-module.exports = {
-  getAllUsers,
-  getUserById,
-  createUser,
-  deleteUser
+
+// 3. Obtenir un utilisateur par son identifiant (GET /api/users/:id)
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouve' });
+    }
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
+
+// 4. Delete a user (DELETE /api/users/:id)
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur introuvable pour la suppression' });
+    }
+    res.status(200).json({ message: 'Utilisateur supprime avec succes', id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { createUser, getUsers, getUserById, deleteUser };
